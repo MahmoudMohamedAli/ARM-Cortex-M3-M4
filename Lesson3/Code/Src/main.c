@@ -41,23 +41,54 @@
  uint8_t IRQ_Flag = 0;
  uint32_t Glob_u32xPSR = 6;
  uint32_t Glob_u32ControlReg =6;
+typedef enum Cpu_AccessLevel
+{
+	PRIVILEGED,   // 0
+	UNPRIVILEGED  // 1
+}Cpu_AccessLevel_t;
+
+void Switch_CPU_AccessLevel(Cpu_AccessLevel_t Level)
+{
+	switch(Level)
+	{
+	case PRIVILEGED: //set CPU To privileged Mode
+		__asm( "mrs r3,CONTROL \n\t"
+			   "lsr r3,r3,#0x01 \n\t"
+			   "lsl r3,r3,#0x01 \n\t"
+			   "msr CONTROL,r3");
+		break;
+
+	case UNPRIVILEGED: //set CPU To unprivileged Mode
+		__asm( "mrs r3,CONTROL \n\t"
+			   "orr r3,#0x01 \n\t"
+			   "msr CONTROL,r3");
+		break;
+	}
+
+
+}
 
 void EXTI9_CALLBACK(void)
 {
 	//IRQ_Flag = 1;
-	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
-
-
-	__asm("MRS %[OUT],PSR\t\n"
-			:[OUT]"=r"(Glob_u32xPSR)	);
-
-	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
+//	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
+//
+//
+//	__asm("MRS %[OUT],PSR\t\n"
+//			:[OUT]"=r"(Glob_u32xPSR)	);
+//
+//	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
 }
 
+void myFunc() //0x080080B4
+{
+	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
 
+}
 int main(void)
 {
-	int in1, in2, out  = 0;
+	uint32_t funcAddress = 0x080080B4; //0x007400000000; //0000 80B4 8000000
+	//int in1, in2, out  = 0;
 	RCC_GPIOB_CLK_EN();
 	RCC_AFIO_CLK_EN();
 
@@ -70,22 +101,14 @@ int main(void)
 	//MCAL_EXTI_GPIO_Init(&EXTIConfig);
     MCAL_EXTI_GPIO_Init(&EXTIConfig);
 
-//    __asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
-//    __asm("add %[out], %[in1], %[in2]"
-//    	  :[out] "=r" (out)
-//    	  :[in1] "r"  (in1),
-//		   [in2] "r" (in2));
-//    __asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
+//    Switch_CPU_AccessLevel(UNPRIVILEGED);
+//    Switch_CPU_AccessLevel(PRIVILEGED);
 
-    __asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
+    void (*pFunc)() = myFunc;
+    pFunc();
 
-
-	__asm("MRS %[OUT],CONTROL\t\n"
-			:[OUT]"=r"(Glob_u32ControlReg)	);
-
-	__asm("nop\n \t nop\n \t nop\n \t nop\n \t nop\n \t nop");
-
-
+    pFunc = (void (*)())funcAddress;// //since the last bit is odd the cpu throw exception "hard fault"
+    pFunc();
 	IRQ_Flag = 1;
 	while (1)
 	{
